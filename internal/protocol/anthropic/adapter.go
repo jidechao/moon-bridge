@@ -310,12 +310,13 @@ func (a *AnthropicProviderAdapter) FromCoreRequest(ctx context.Context, req *for
 	if len(req.Tools) > 0 {
 		anthropicReq.Tools = make([]Tool, 0, len(req.Tools))
 		for _, t := range req.Tools {
-			schema := cleanSchema(t.InputSchema)
-			if schema == nil {
-				schema = map[string]any{"type": "object"}
+			name := strings.TrimSpace(t.Name)
+			if name == "" || isUnsupportedAnthropicFunctionTool(name) {
+				continue
 			}
+			schema := prepareToolInputSchema(name, t.InputSchema)
 			anthropicReq.Tools = append(anthropicReq.Tools, Tool{
-				Name:        t.Name,
+				Name:        name,
 				Description: t.Description,
 				InputSchema: schema,
 			})
@@ -1038,6 +1039,40 @@ func (a *AnthropicProviderAdapter) coreCacheControl(c *format.CoreCacheControl) 
 		cc.TTL = fmt.Sprintf("%ds", c.TTLSeconds)
 	}
 	return cc
+}
+
+// isUnsupportedAnthropicFunctionTool reports OpenAI-only built-in tools that
+// must not be forwarded as Anthropic custom function declarations.
+func isUnsupportedAnthropicFunctionTool(name string) bool {
+	switch name {
+	case "web_search", "web_search_preview", "file_search", "code_interpreter", "computer_use_preview":
+		return true
+	default:
+		return false
+	}
+}
+
+// prepareToolInputSchema normalizes tool input schemas for strict Anthropic-compatible
+// providers (e.g. MiniMax) that reject empty function names or bare {"type":"object"}.
+func prepareToolInputSchema(name string, schema map[string]any) map[string]any {
+	cleaned := cleanSchema(schema)
+	if cleaned == nil || len(cleaned) == 0 {
+		cleaned = map[string]any{"type": "object"}
+	}
+	if props, ok := cleaned["properties"].(map[string]any); ok && len(props) > 0 {
+		if _, hasType := cleaned["type"]; !hasType {
+			cleaned["type"] = "object"
+		}
+		return cleaned
+	}
+	cleaned["type"] = "object"
+	cleaned["properties"] = map[string]any{
+		"input": map[string]any{
+			"type":        "string",
+			"description": fmt.Sprintf("Input for tool %s", name),
+		},
+	}
+	return cleaned
 }
 
 // cleanSchema recursively removes nil values from a JSON schema map.

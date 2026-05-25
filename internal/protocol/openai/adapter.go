@@ -1529,10 +1529,17 @@ func convertToolWithNamespace(tool Tool, namespace string, disablePatchProxy fun
 
 	switch tool.Type {
 	case "function":
+		params := tool.Parameters
+		if len(params) == 0 {
+			params = codextool.InputSchemaWithFallback(nil, tool.Name)
+		}
+		if strings.TrimSpace(tool.Name) == "" {
+			return nil
+		}
 		ct := format.CoreTool{
 			Name:        name,
 			Description: tool.Description,
-			InputSchema: tool.Parameters,
+			InputSchema: params,
 		}
 		codextool.AnnotateCoreTool(&ct, codextool.ToolFunction, tool.Name, namespace)
 		return []format.CoreTool{ct}
