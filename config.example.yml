@@ -5,12 +5,8 @@ log:
   level: "info"  # debug / info / warn / error
   format: "text" # text / json
 
-# system_prompt: ""
-
 server:
   addr: "127.0.0.1:38440"
-  # Set a Bearer token for API authentication. When non-empty, all requests
-  # must include an Authorization: Bearer <token> header. If empty, auth is disabled.
   # auth_token: "replace-with-your-secret-token"
 
 persistence:
@@ -19,9 +15,7 @@ persistence:
 extensions:
   deepseek_v4:
     config:
-      # Injects a reminder before user input to reinforce system prompt adherence.
       reinforce_instructions: true
-      # Custom prompt text (default used if omitted). Set to empty string to disable.
       reinforce_prompt: "[System Reminder]: Please pay close attention to the system
         instructions, AGENTS.md files, and any other context provided. Follow them
         carefully and completely in your response.\n[User]:"
@@ -31,27 +25,10 @@ extensions:
       model: "kimi-for-coding"
       max_rounds: 4
       max_tokens: 2048
-  # Kimi model tool call round limiter: injects progress/limit prompts
-  # after each tool_result batch to prevent runaway information gathering.
-  #
-  # Enable at model level to activate:
-  #   models:
-  #     my-kimi-model:
-  #       extensions:
-  #         kimi_workaround:
-  #           enabled: true
   kimi_workaround:
     config:
       max_tool_rounds: 50
       convergence_margin: 0.8
-  # Example model with kimi_workaround enabled:
-  # my-kimi-model:
-  #   context_window: 128000
-  #   extensions:
-  #     kimi_workaround:
-  #       enabled: true
-
-  # Database provider: SQLite
   db_sqlite:
     enabled: true
     config:
@@ -59,24 +36,15 @@ extensions:
       wal: true
       busy_timeout_ms: 5000
       max_open_conns: 1
-
-  # Database provider: Cloudflare D1 (Worker only)
-  # db_d1:
-  #   enabled: true
-  #   config:
-  #     binding: MOONBRIDGE_DB
-
-  # Persistence consumer: request metrics
   metrics:
     enabled: true
     config:
       default_limit: 100
       max_limit: 1000
 
-
 cache:
-  mode: "explicit"  # off / automatic / explicit / hybrid
-  ttl: "5m"         # 5m / 1h
+  mode: "explicit"
+  ttl: "5m"
   prompt_caching: true
   automatic_prompt_cache: false
   explicit_cache_breakpoints: true
@@ -90,6 +58,7 @@ cache:
 defaults:
   model: "moonbridge"
   max_tokens: 65536
+
 trace:
   enabled: false
 proxy:
@@ -116,7 +85,7 @@ models:
     supports_reasoning_summaries: true
     default_reasoning_summary: "auto"
     web_search:
-      support: "auto"        # model-level override (auto / enabled / disabled / injected)
+      support: "auto"
     extensions:
       deepseek_v4:
         enabled: true
@@ -136,12 +105,57 @@ models:
     supports_reasoning_summaries: true
     default_reasoning_summary: "auto"
     web_search:
-      support: "auto"        # model-level override (auto / enabled / disabled / injected)
+      support: "auto"
     extensions:
       deepseek_v4:
         enabled: true
       visual:
         enabled: true
+  kimi-for-coding:
+    context_window: 128000
+    input_modalities:
+      - "text"
+      - "image"
+  gpt-image-1.5: {}
+  gpt-4o-mini-tts: {}
+  glm-5.1:
+    context_window: 204800
+    max_output_tokens: 131072
+    display_name: "GLM-5.1"
+    description: "智谱 GLM-5.1 编码模型，支持推理与工具调用。"
+    default_reasoning_level: "medium"
+    supported_reasoning_levels:
+      - effort: "low"
+        description: "快速响应，轻量推理"
+      - effort: "medium"
+        description: "平衡速度与推理深度"
+      - effort: "high"
+        description: "深度推理，适合复杂任务"
+    supports_reasoning_summaries: true
+    default_reasoning_summary: "auto"
+    input_modalities:
+      - "text"
+    web_search:
+      support: "disabled"
+  minimax-m2.7:
+    context_window: 204800
+    max_output_tokens: 131072
+    display_name: "MiniMax M2.7"
+    description: "MiniMax M2.7 编码与 Agent 模型，支持推理与工具调用。"
+    default_reasoning_level: "medium"
+    supported_reasoning_levels:
+      - effort: "low"
+        description: "快速响应，轻量推理"
+      - effort: "medium"
+        description: "平衡速度与推理深度"
+      - effort: "high"
+        description: "深度推理，适合复杂任务"
+    supports_reasoning_summaries: true
+    default_reasoning_summary: "auto"
+    input_modalities:
+      - "text"
+    web_search:
+      support: "disabled"
   claude-sonnet-4-20250514:
     context_window: 200000
     max_output_tokens: 64000
@@ -164,6 +178,7 @@ models:
       - "text"
       - "image"
     supports_image_detail_original: true
+
 providers:
   deepseek:
     base_url: "https://api.deepseek.com/anthropic"
@@ -193,6 +208,28 @@ providers:
     user_agent: "moonbridge/1.0"
     offers:
       - model: kimi-for-coding
+  zhipu:
+    # 智谱 AI Anthropic 兼容接口
+    base_url: "https://open.bigmodel.cn/api/anthropic"
+    api_key: "replace-with-zhipu-api-key"
+    version: "2023-06-01"
+    user_agent: "moonbridge/1.0"
+    web_search:
+      support: "disabled"
+    offers:
+      - model: glm-5.1
+        upstream_name: "GLM-5.1"
+  minimax:
+    # MiniMax Anthropic 兼容接口
+    base_url: "https://api.minimaxi.com/anthropic"
+    api_key: "replace-with-minimax-api-key"
+    version: "2023-06-01"
+    user_agent: "moonbridge/1.0"
+    web_search:
+      support: "disabled"
+    offers:
+      - model: minimax-m2.7
+        upstream_name: "minimax-m2.7"
   openai:
     base_url: "https://api.openai.com"
     api_key: "replace-with-openai-api-key"
@@ -217,11 +254,28 @@ providers:
           cache_read_price: 0.30
 
 routes:
-    # Optional aliases. Provider models are listed directly in the Codex catalog
-    # as model(provider) format; routes only add friendly fallback names.
   moonbridge:
-    model: deepseek-v4-pro
+    model: glm-5.1
+    provider: zhipu
+  # 可选：Flash 别名，Codex 里选 deepseek-flash 即走 Flash
+  gpt-5.4:
+    model: minimax-m2.7
+    provider: minimax
+  gpt-5.4-Mini:
+    model: minimax-m2.7
+    provider: minimax
+  gpt-5.5:
+    model: glm-5.1
+    provider: zhipu
+  deepseek-flash:
+    model: deepseek-v4-flash
     provider: deepseek
+  glm-5.1:
+    model: glm-5.1
+    provider: zhipu
+  minimax-m2.7:
+    model: minimax-m2.7
+    provider: minimax
   gpt-image:
     model: gpt-image-1.5
     provider: openai
